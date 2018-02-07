@@ -90,7 +90,7 @@ def prepare_continue_single_thread(alpha,E,dt,epsilon,path,i):
     f_freq=Averaging_discret.Averaging_discret_sphere.get_f_freq(2,alpha)
     #on va compresser le temps
     #f_axis,f_theta=Averaging_discret.Averaging_discret_sphere.get_f_axis_theta(x_s,y_s,z_s,theta)
-    averag=Averaging_discret.Averaging_discret_sphere(f_theta)
+    averag=Averaging_discret.Averaging_discret_sphere(f_freq=f_freq)
     averag.get_timer(epsilon)
     times_d=averag.times
     ## we load the continue simulation
