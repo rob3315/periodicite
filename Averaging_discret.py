@@ -85,7 +85,7 @@ class Averaging_discret_sphere(Averaging_discret):
 		#print(z,axis,angle)
 		axis=axis/np.linalg.norm(axis) # we normalize anyway because of numerical error
 		return np.cos(angle)*z + np.sin(angle) *np.cross(axis,z)+ (1-np.cos(angle))*(np.dot(axis,z))*axis
-	def get_z(self,epsilon):
+	def get_timer(self,epsilon):
 		t=0
 		self.times=[t] # between 0 and 2*pi
 		while t<int(2*np.pi/epsilon):
@@ -94,6 +94,9 @@ class Averaging_discret_sphere(Averaging_discret):
 			t=t+deltat # irregular paces
 			self.times.append(epsilon*t) # normalize times
 		self.times=np.array(self.times)
+
+	def get_z(self,epsilon):
+		self.get_timer(epsilon)
 		self.lst_theta=self.f_theta(self.times)
 		self.lst_axis=np.transpose(np.array(self.f_axis(self.times)))
 		z=np.zeros((len(self.lst_theta),3))

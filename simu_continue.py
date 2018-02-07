@@ -86,6 +86,18 @@ def prepare_continue_single_thread(alpha,E,dt,epsilon,path,i):
     times=np.arange(0,tf,dt)
     res=compute_continue(epsilon,alpha,times)
     time.sleep(50*np.random.random(1))#eviter que tout le monde saauvegarde en meme temps
+    f_freq=Averaging_discret.Averaging_discret_sphere.get_f_freq(2,alpha)
+    #on va compresser le temps
+    f_axis,f_theta=Averaging_discret.Averaging_discret_sphere.get_f_axis_theta(x_s,y_s,z_s,theta)
+    averag=Averaging_discret.Averaging_discret_sphere(f_theta,f_axis,f_freq)
+    averag.get_timer(epsilon)
+    times_d=averag.times
+    ## we load the continue simulation
+    [x_c,y_c,z_c]=res_c
+    ## we set the same time for both
+    [x_c_p,y_c_p,z_c_p]=[np.interp(times_d, times*epsilon, x_c),np.interp(times_d, times*epsilon, y_c),np.interp(times_d, times*epsilon, z_c)]
+    #we save the new result
+    res_c=[x_c_p,y_c_p,z_c_p]
     try:
         with open(path, 'wb') as fp:
             pickle.dump(res, fp)
@@ -97,9 +109,9 @@ def prepare_continue_single_thread(alpha,E,dt,epsilon,path,i):
         os.system('rm '+path) 
 
 lst_alpha=np.arange(-1,1,0.1)
-path="res/simu_continue_{:f}_{:f}_-4dt"
+path="res/simu_continue_compact_{:f}_{:f}_-4dt"
 E=2
-dt=0.001
+dt=0.0001
 lst_epsilon=np.array([0.05,0.02,0.01,0.008,0.005,0.002,0.001])
 i=int((sys.argv[1]))
 print(i)
