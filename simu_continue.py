@@ -11,6 +11,7 @@ from collections import namedtuple
 import os
 from multiprocessing import Process, Manager
 import multiprocessing
+import Averaging_discret
 import time
 Simu_continue = namedtuple("Simu_continue", ["epsilon", "alpha"])
 pi=np.pi
