@@ -94,11 +94,11 @@ def prepare_continue_single_thread(alpha,E,dt,epsilon,path,i):
     averag.get_timer(epsilon)
     times_d=averag.times
     ## we load the continue simulation
-    [x_c,y_c,z_c]=res_c
+    [x_c,y_c,z_c]=res
     ## we set the same time for both
     [x_c_p,y_c_p,z_c_p]=[np.interp(times_d, times*epsilon, x_c),np.interp(times_d, times*epsilon, y_c),np.interp(times_d, times*epsilon, z_c)]
     #we save the new result
-    res_c=[x_c_p,y_c_p,z_c_p]
+    res=[x_c_p,y_c_p,z_c_p]
     try:
         with open(path, 'wb') as fp:
             pickle.dump(res, fp)
