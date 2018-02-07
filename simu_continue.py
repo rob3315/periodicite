@@ -85,27 +85,26 @@ def prepare_continue_single_thread(alpha,E,dt,epsilon,path,i):
     tf=int(2*pi/epsilon)
     times=np.arange(0,tf,dt)
     res=compute_continue(epsilon,alpha,times)
-    time.sleep(5*np.random.random(1))#eviter que tout le monde saauvegarde en meme temps
+    time.sleep(50*np.random.random(1))#eviter que tout le monde saauvegarde en meme temps
     try:
         with open(path, 'wb') as fp:
             pickle.dump(res, fp)
         os.system('scp '+path+ ' remi@129.104.219.230:test/')
-        os.system('rm '+path) 
         print("done")
     except:
         time.sleep(1)
         os.system('echo "{:d}" >> res/failed.txt'.format(i))
+        os.system('rm '+path) 
 
-if __name__=='__main__':
-    lst_alpha=np.arange(-1,1,0.1)
-    path="res/simu_continue_{:f}_{:f}_-4dt"
-    E=2
-    dt=0.001
-    lst_epsilon=np.array([0.05,0.02,0.01,0.008,0.005,0.002,0.001])
-    i=int((sys.argv[1]))
-    print(i)
-    epsilon=lst_epsilon[i//len(lst_alpha)]
-    alpha=lst_alpha[i % len(lst_alpha)]
-    path=path.format(epsilon,alpha)
-    prepare_continue_single_thread(alpha,E,dt,epsilon,path,i)
-    #prepare_continue(lst_alpha,E,dt,lst_epsilon,path)
+lst_alpha=np.arange(-1,1,0.1)
+path="res/simu_continue_{:f}_{:f}_-4dt"
+E=2
+dt=0.001
+lst_epsilon=np.array([0.05,0.02,0.01,0.008,0.005,0.002,0.001])
+i=int((sys.argv[1]))
+print(i)
+epsilon=lst_epsilon[i//len(lst_alpha)]
+alpha=lst_alpha[i % len(lst_alpha)]
+path=path.format(epsilon,alpha)
+prepare_continue_single_thread(alpha,E,dt,epsilon,path,i)
+#prepare_continue(lst_alpha,E,dt,lst_epsilon,path)

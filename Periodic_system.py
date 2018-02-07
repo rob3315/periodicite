@@ -1,13 +1,13 @@
 from qutip import *
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 import numpy as np
-from mpl_toolkits.mplot3d import Axes3D
+#from mpl_toolkits.mplot3d import Axes3D
 pi=np.pi
-from math import sqrt
-import pickle
+import sys
 import os
 import time
-import sys
+from math import sqrt
+import pickle
 class Periodic_system():
     def __init__(self,plot):
         self.up = basis(2, 0)
@@ -177,13 +177,14 @@ if __name__=='__main__':
     res_tot.append(y)
     res_tot.append(z)
     res_tot.append(lst_theta)
-    time.sleep(5*np.random.random(1))#eviter que tout le monde sauvegarde en meme temps
+    time.sleep(5*np.random.random(1))#eviter que tout le monde saauvegarde en meme temps
     try:
-        with open('simu_xyztheta_1000pt_-4dt_{:f}'.format(alpha), 'wb') as fp:
+        path='simu_xyztheta_1000pt-4dt_{:f}'.format(alpha)
+        with open(path, 'wb') as fp:
             pickle.dump(res_tot, fp)
         os.system('scp '+path+ ' remi@129.104.219.230:test/')
         os.system('rm '+path) 
         print("done")
     except:
         time.sleep(1)
-        os.system('echo "{:d}" >> res/failed2.txt'.format(i))
+        os.system('echo "{:d}" >> res/failed3.txt'.format(i))
