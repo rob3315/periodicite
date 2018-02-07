@@ -89,8 +89,8 @@ def prepare_continue_single_thread(alpha,E,dt,epsilon,path,i):
     time.sleep(50*np.random.random(1))#eviter que tout le monde saauvegarde en meme temps
     f_freq=Averaging_discret.Averaging_discret_sphere.get_f_freq(2,alpha)
     #on va compresser le temps
-    f_axis,f_theta=Averaging_discret.Averaging_discret_sphere.get_f_axis_theta(x_s,y_s,z_s,theta)
-    averag=Averaging_discret.Averaging_discret_sphere(f_theta,f_axis,f_freq)
+    #f_axis,f_theta=Averaging_discret.Averaging_discret_sphere.get_f_axis_theta(x_s,y_s,z_s,theta)
+    averag=Averaging_discret.Averaging_discret_sphere(f_theta)
     averag.get_timer(epsilon)
     times_d=averag.times
     ## we load the continue simulation

@@ -74,7 +74,8 @@ class Averaging_discret_sphere(Averaging_discret):
 		n=len(x)
 		times=np.linspace(0,2*np.pi,n)
 		return (lambda t : [np.interp(t, times, x),np.interp(t, times, y),np.interp(t, times, z)], lambda t : np.interp(t, times, theta))
-	def __init__(self,f_theta,f_axis,f_freq):
+
+	def __init__(self,f_theta,f_axis=None,f_freq=None):
 		super().__init__(f_theta)
 		self.f_axis=f_axis
 		self.f_freq=f_freq
