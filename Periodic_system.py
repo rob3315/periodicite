@@ -1,5 +1,5 @@
 from qutip import *
-#import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 import numpy as np
 #from mpl_toolkits.mplot3d import Axes3D
 pi=np.pi
@@ -9,6 +9,7 @@ import time
 from math import sqrt
 import pickle
 class Periodic_system():
+    qutip=False
     def __init__(self,plot):
         self.up = basis(2, 0)
         self.down=basis(2, 1)
@@ -18,52 +19,66 @@ class Periodic_system():
         self.plot_res=plot # plot of the result
         self.plot_inter=False # plot of every configuration
     def compute(self,w,psi0,c,dt):
-        H0=(self.E+self.alpha)*sigmaz()
         times=np.arange(0,2*np.pi/w,dt)
-
-
         def H1_coeffR(t,args):
             return c*1/2*np.real( np.exp( -1j*(w*t) ))
 
-        #def H1_coeffCx(t,args):
-        #    return u1(epsilon*tt) *1/4*np.real( np.exp( -1j*w*t ))
-
-        #def H1_coeffCy(t,args):
-        #    return -u1(epsilon*tt) *1/4*np.imag( np.exp( -1j*w*t ))
-
-
-        HR=[H0,[sigmax(),H1_coeffR]]
-        #HC=[H0,[sigmax(),H1_coeffCx],[sigmay(),H1_coeffCy]]
-
-        resultR = mesolve(HR, psi0, times, [], [sigmax(), sigmay(),sigmaz()])
-        #= mesolve(HC, psi0, times, [], [sigmax(), sigmay(),sigmaz()])
-        #print(H1_coeffR(times,()))
-        return(resultR,H1_coeffR(times,()))
+        if Periodic_system.qutip:
+            H0=(self.E+self.alpha)*sigmaz()
+            HR=[H0,[sigmax(),H1_coeffR]]
+            resultR = mesolve(HR, psi0, times, [], [sigmax(), sigmay(),sigmaz()])
+            return(resultR.expect,H1_coeffR(times,()))
+        else :
+            #euler schema
+            #psi0 = np.array([0,0,1])# TODO implement the conversion
+            result=np.zeros((3,2))
+            result[:,0]=psi0
+            H=lambda t: np.array([[0,-2*(self.E+self.alpha),0],
+                [2*(self.E+self.alpha),0,-2*H1_coeffR(t,())],
+                [0,2*H1_coeffR(t,()),0]])
+            for k in range(1,len(times)):
+                result[:,1]=result[:,0]+np.dot(H(times[k]),result[:,0])*dt
+                result[:,1]=result[:,1]/(np.linalg.norm(result[:,1]))
+                result[:,0]=result[:,1]
+            return(result,H1_coeffR(times,()))
 
 
     def get_axis_angle(self,dt,w,c):
     # we compute the evolution of ex, ey and ez
     # in fact it is enough to get the evolution of ex and ey because
     #the evolution matrix in in SO_3 
-
-        psi0=(1/sqrt(2)*self.down+1/sqrt(2)*self.up)
+        if Periodic_system.qutip:
+            psi0=(1/sqrt(2)*self.down+1/sqrt(2)*self.up)
+        else :
+            psi0 = np.array([1,0,0])
         resultR,control=self.compute(w,psi0,c,dt)
-        rx=[resultR.expect[0][-1],resultR.expect[1][-1],resultR.expect[2][-1]]
+        rx=[resultR[0][-1],resultR[1][-1],resultR[2][-1]]
 
-        psi0=(1j/sqrt(2)*self.down+1/sqrt(2)*self.up)
+        if Periodic_system.qutip:
+            psi0=(1j/sqrt(2)*self.down+1/sqrt(2)*self.up)
+        else :
+            psi0 = np.array([0,1,0])
         resultR,control=self.compute(w,psi0,c,dt)
-        ry=[resultR.expect[0][-1],resultR.expect[1][-1],resultR.expect[2][-1]]
+        ry=[resultR[0][-1],resultR[1][-1],resultR[2][-1]]
 
-
-        psi0=self.up
+        if Periodic_system.qutip:
+            psi0=self.up
+        else :
+            psi0 = np.array([0,0,1])
         resultR,control=self.compute(w,psi0,c,dt)
-        rz=[resultR.expect[0][-1],resultR.expect[1][-1],resultR.expect[2][-1]]
+        rz=[resultR[0][-1],resultR[1][-1],resultR[2][-1]]
 
 
         rx,ry,rz=np.array(rx),np.array(ry),np.array(rz)
         M=[rx,ry,rz]
         M=np.array(M).transpose()
+        print('M',M)
+        return self.get_axis_angle_aux(M)
+        
+    def get_axis_angle_aux(self,M):
+        """compute axis and angle from SO3 matrix M"""
         eigen_values,eigen_vectors=np.linalg.eig(M)
+        print('eigen_value',eigen_values)
         h=np.argmin(np.abs(eigen_values-np.ones(3))) # we take the eigen vector associated with the eigen_value 1
         v=eigen_vectors[:,h] # the fixe point
         v=np.real(v) #the imaginary part should be only computational error
@@ -76,7 +91,7 @@ class Periodic_system():
         else :
             vector_ortho=np.cross(e1,v)
         vector_ortho=vector_ortho/np.linalg.norm(vector_ortho)# we normalize it
-        costheta=max(min((1-np.trace(M))/2,1),-1)
+        costheta=max(min((np.trace(M)-1)/2,1),-1)
         theta = np.arccos(costheta)
         if np.dot(np.cross(vector_ortho,np.dot(M,vector_ortho)), v)<0 :# the rotation must be between 0 and pi
             v=-v
@@ -89,26 +104,26 @@ class Periodic_system():
         #testing the result :
         if self.plot_inter==True:
             psi0=sqrt((v[2]+1)/2)*self.up+sqrt(1-(v[2]+1)/2)*np.exp(1j*np.arctan2(v[1],v[0]))*self.down # create the right vector
-            resultR,control=self.compute(w,psi0,c,dt)
-            rw=[resultR.expect[0][-1],resultR.expect[1][-1],resultR.expect[2][-1]]
+            resultR=self.compute(w,psi0,c,dt)
+            rw=[resultR[0][-1],resultR[1][-1],resultR[2][-1]]
             times=np.arange(0,2*np.pi/w,dt)
             fig = plt.figure()#figsize=(15,22))
             ax = fig.add_subplot(1,2,1)
             plt.title('Evolution real case')
-            ax.plot(times, resultR.expect[0], 'r')
-            ax.plot(times, resultR.expect[1], 'g')
-            ax.plot(times, resultR.expect[2], 'b')
+            ax.plot(times, resultR[0], 'r')
+            ax.plot(times, resultR[1], 'g')
+            ax.plot(times, resultR[2], 'b')
             ax.plot(times, control, 'orange')
 
 
-            g=np.gradient(resultR.expect[0],dt)/resultR.expect[1]
+            g=np.gradient(resultR[0],dt)/resultR[1]
 
 
             #ax.plot(times, g, 'y')
             ax.legend(("sx", "sy", "sz"))
 
             sphere=Bloch(axes=fig.add_subplot(1,2,2, projection='3d'))
-            sphere.add_points([resultR.expect[0],resultR.expect[1],resultR.expect[2]], meth='l')
+            sphere.add_points([resultR[0],resultR[1],resultR[2]], meth='l')
             sphere.vector_color = ['r']
             #sphere.add_vectors([sin(theta),0,cos(theta)])
             sphere.make_sphere()
@@ -116,16 +131,16 @@ class Periodic_system():
             plt.show()
         return(v,theta)
 
-    def launch_simu(self,nb_point=40,E=2,dt=0.001,c=1,alpha=0):
-    
-        pts=np.linspace(0,2*pi,nb_point)
+    def launch_simu(self,nb_point=40,E=2,dt=0.001,c=1,alpha=0,pts=None):
+        if pts is None:
+            pts=np.linspace(0,2*pi,nb_point)
         self.E=E
         self.alpha=alpha
         lst_v=[]
         lst_theta=[]
         for tt in pts:
             w=np.abs(2*(E)+self.control_u2(tt))
-            print(tt,w)
+            print('tt,w',tt,w)
             v,theta=self.get_axis_angle(dt,w,c*self.control_u1(tt))
             #for a better visualisation, we are going to force x>0
             if v[0]>0:
@@ -156,6 +171,22 @@ class Periodic_system():
         ax.legend(("sx", "sy", "sz",'angle'))
         plt.show()
 
+    def plot_around_zero(self,ax,x,z,theta):
+        # 2D plot (in x,z) giving the rotation angle
+        n=len(x)
+        lx=np.zeros(n)
+        lz=np.zeros(n)
+        for k in range(n):
+            #print(x[k],z[k],theta[k])
+            if theta[k]< np.pi:
+                lx[k]=x[k]*theta[k]
+                lz[k]=z[k]*theta[k]
+            else :
+                lx[k]=x[k]*(2*np.pi-theta[k])
+                lz[k]=z[k]*(2*np.pi-theta[k])
+        ax.plot(lx,lz,'x')
+        ax.legend(["axis coordinate (x,z)"])
+
     def regularize(self,lst_theta):
         """change lst_theta for avoiding jump between 2 pi and 0"""
         i=0
@@ -166,18 +197,19 @@ class Periodic_system():
                 i=i-1
             lst_theta[k+1]=lst_theta[k+1]+2*i*np.pi
 
-if __name__=='__main__':
+def monothread():
     test=Periodic_system(False)
     lst_alpha=np.arange(-1,1,0.1)
     res_tot=[]
-    i=int((sys.argv[1]))
+    #i=int((sys.argv[1]))
+    i=10
     alpha=lst_alpha[i]
     (x,y,z,lst_theta)=test.launch_simu(nb_point=1000,E=2,dt=0.0001,c=1,alpha=alpha)
     res_tot.append(x)
     res_tot.append(y)
     res_tot.append(z)
     res_tot.append(lst_theta)
-    time.sleep(5*np.random.random(1))#eviter que tout le monde saauvegarde en meme temps
+    time.sleep(5*np.random.random(1))#eviter que tout le monde sauvegarde en meme temps
     try:
         path='simu_xyztheta_1000pt-4dt_{:f}'.format(alpha)
         with open(path, 'wb') as fp:
@@ -188,3 +220,26 @@ if __name__=='__main__':
     except:
         time.sleep(1)
         os.system('echo "{:d}" >> res/failed3.txt'.format(i))
+
+if __name__=='__main__':
+    #monothread()
+    test=Periodic_system(False)
+    alpha=0
+    #pts=np.linspace(0.94,0.99,50)
+    #(x,y,z,lst_theta)=test.launch_simu(nb_point=1000,E=2,dt=0.0005,c=1,alpha=alpha,pts=pts)
+#    with open('res/simu_xyztheta_zeros_8000pt-4dt_-0.000000','rb') as fg:
+    with open('res/simu_xyztheta_zeros_2500_euc_pt-6dt_-0.000000','rb') as fg :
+        (x,y,z,lst_theta)=pickle.load(fg)
+        print(z)
+        x=np.array(x)
+        x=x.flatten()
+        y=np.array(y)
+        y=y.flatten()
+        z=np.array(z)
+        z=z.flatten()
+        lst_theta=np.array(lst_theta)
+        lst_theta=lst_theta.flatten()
+    fig = plt.figure()
+    ax = fig.add_subplot(111)#, projection='3d')
+    test.plot_around_zero(ax,x,z,lst_theta)
+    plt.show()

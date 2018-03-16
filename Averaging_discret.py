@@ -1,7 +1,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from abc import ABC, abstractmethod
+import matplotlib
 class Averaging_discret(ABC):
+	nmax=1E5
 	def __init__(self,f_theta):
 		self.f_theta=f_theta
 		super().__init__()
@@ -31,13 +33,19 @@ class Averaging_discret(ABC):
 
 
 	def plot_multi_N(self,lst_n):
-		fig, axs = plt.subplots(len(lst_n)+1, 1, sharex=True, sharey=False)
+		nb_row=int((len(lst_n)+1)/2)
+		fig, axs = plt.subplots(nb_row, 2, sharex=True, sharey=False)
 
 		for k in range(len(lst_n)):
 			n=lst_n[k]
 			z=self.get_z(n)
-			self.single_plot_z(n,z,axs[k])
-		self.plot_final(n,axs[-1])
+			self.single_plot_z(n,z,axs[k//2,k%2])
+			print("plot {:.1E} done".format(n))
+			axs[k//2,k%2].get_yaxis().set_major_formatter(matplotlib.ticker.FuncFormatter(lambda x, p: "{:.2E}".format(x)))
+
+		#fig2, ax2 = plt.subplots(1,1)
+		ax2=axs[-1][-1]
+		self.plot_final(n,ax2)
 		plt.show()
 
 class Averaging_discret_flat(Averaging_discret):
@@ -55,8 +63,12 @@ class Averaging_discret_flat(Averaging_discret):
 		self.compute(lst_theta,lst_axis,0+0j,z)
 		return z
 	def single_plot_z(self,n,z,ax):
-		ax.plot(np.real(z), np.imag(z))
-		ax.legend(["n = "+str(n)])
+		"""majore à nmax points"""
+		if n<Averaging_discret.nmax:
+			ax.plot(np.real(z), np.imag(z))
+		else :
+			ax.plot(np.real(z[::int(n/Averaging_discret.nmax)]), np.imag(z[::int(n/Averaging_discret.nmax)]))
+		ax.legend(["n = {:.1E}".format(n)])
 
 	def plot_final(self,n,ax):
 		times=np.arange(n)/n
@@ -89,17 +101,22 @@ class Averaging_discret_sphere(Averaging_discret):
 	def get_timer(self,epsilon):
 		t=0
 		self.times=[t] # between 0 and 2*pi
-		while t<int(2*np.pi/epsilon):
+		self.times_m=[]
+		tf=int(2*np.pi/epsilon)
+		while t<tf:
 			deltat=1/self.f_freq(t*epsilon)
 			deltat=(1/self.f_freq(t*epsilon)+1/self.f_freq((t+deltat)*epsilon))/2
 			t=t+deltat # irregular paces
 			self.times.append(epsilon*t) # normalize times
+			self.times_m.append((self.times[-2]+self.times[-1])/2)
+		self.times_m.append((self.times[-1]+tf)/2)
+		self.times_m=np.array(self.times_m)
 		self.times=np.array(self.times)
 
 	def get_z(self,epsilon):
 		self.get_timer(epsilon)
-		self.lst_theta=self.f_theta(self.times)
-		self.lst_axis=np.transpose(np.array(self.f_axis(self.times)))
+		self.lst_theta=self.f_theta(self.times_m)
+		self.lst_axis=np.transpose(np.array(self.f_axis(self.times_m)))
 		z=np.zeros((len(self.lst_theta),3))
 		
 		#return(self.times,lst_axis,self.lst_theta)
@@ -124,9 +141,10 @@ class Averaging_discret_sphere(Averaging_discret):
 		ax.legend(["angle","axis x","axis y","axis z","norm axis"])
 
 
-#lst_theta=lambda times : np.pi/2*np.cos(2*np.pi*times,dtype=complex)
-##lst_theta=np.pi/2*np.cos((1/3)*np.pi*times,dtype=complex)#np.sin(times,dtype=complex)
-#test=Averaging_discret_flat(lst_theta)
-#lst_n=[5,10,100,1000,10000]#,100000,1000000]
-#test.plot_multi_N(lst_n)
+lst_theta=lambda times : np.pi/2*np.cos(2*np.pi*times,dtype=complex)
+#lst_theta=lambda times : np.array((times-0.5)**2,dtype=complex)
+#lst_theta=lambda times : 4*np.pi/5*np.cos((1/3)*np.pi*times,dtype=complex)#np.sin(times,dtype=complex)
+test=Averaging_discret_flat(lst_theta)
+lst_n=[5,10,100,1000,10000,100000,1000000]
+test.plot_multi_N(lst_n)
 

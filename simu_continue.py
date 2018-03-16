@@ -8,6 +8,7 @@ from qutip import *
 import numpy as np
 import pickle
 from collections import namedtuple
+from math import sqrt
 import os
 from multiprocessing import Process, Manager
 import multiprocessing
@@ -17,8 +18,7 @@ Simu_continue = namedtuple("Simu_continue", ["epsilon", "alpha"])
 pi=np.pi
 up = basis(2, 0)
 down=basis(2, 1)
-def compute_continue(epsilon,alpha,times):
-    psi0=basis(2, 0)
+def compute_continue(epsilon,alpha,times,E,psi0=basis(2, 0)):
     H0=(E+alpha)*sigmaz()
 
     u1 = lambda t : 1.5*(1-np.cos(t))
@@ -27,14 +27,13 @@ def compute_continue(epsilon,alpha,times):
 
     def H1_coeffR(t,args):
         return u1(epsilon*t) *1/2 *np.real( np.exp( -1j*(2*E*t +  U2(epsilon*t)/epsilon ) ))
-
     def H1_coeffCx(t,args):
         return u1(epsilon*t) *1/4*np.real( np.exp( -1j*(2*E*t +  U2(epsilon*t)/epsilon ) ))
 
     def H1_coeffCy(t,args):
         return -u1(epsilon*t) *1/4*np.imag( np.exp( -1j*(2*E*t +  U2(epsilon*t)/epsilon ) ))
 
-
+    #print(H1_coeffR(0.96/epsilon,None))
     HR=[H0,[sigmax(),H1_coeffR]]
     #HC=[H0,[sigmax(),H1_coeffCx],[sigmay(),H1_coeffCy]]
 
@@ -57,7 +56,7 @@ def calculatestar(args):
 def f_aux(epsilon,alpha,dic):
     tf=int(2*pi/epsilon)
     times=np.arange(0,tf,dt)
-    res=compute_continue(epsilon,alpha,times)
+    res=compute_continue(epsilon,alpha,times,E)
     simu=Simu_continue(epsilon,alpha)
     #print(dic)
     dic[simu]=res
@@ -82,23 +81,44 @@ def prepare_continue_multi_thread(lst_alpha,E,dt,lst_epsilon,path):
         pickle.dump(dicR, fp)
     print("done")
 
+def get_times_d(E,alpha,epsilon):
+    f_freq=Averaging_discret.Averaging_discret_sphere.get_f_freq(E,alpha)
+    averag=Averaging_discret.Averaging_discret_sphere(f_freq=f_freq)
+    averag.get_timer(epsilon)
+    return averag.times
+
+def prepare_continue_mpi(alpha,E,dt,epsilon,i):
+    times_d=get_times_d(E,alpha,epsilon)
+    ti=int(times_d[i]/(dt*epsilon))
+    tf=int(times_d[i+1]/(dt*epsilon))
+    times=np.arange(ti,tf,1)*dt
+    #print(times)
+    ez=up
+    ex=(1/sqrt(2)*down+1/sqrt(2)*up)
+    resultz=compute_continue(epsilon,alpha,times,E,psi0=ez)
+    resultx=compute_continue(epsilon,alpha,times,E,psi0=ex)
+    rx=np.array([resultx[0][-1],resultx[1][-1],resultx[2][-1]])
+    rx=rx/np.linalg.norm(rx)
+    rz=np.array([resultz[0][-1],resultz[1][-1],resultz[2][-1]])
+    rz=rz/np.linalg.norm(rz)
+    ry= np.cross(rz,rx)
+    return np.transpose(np.array([rx,ry,rz]))
+
 def prepare_continue_single_thread(alpha,E,dt,epsilon,path,i):
     tf=int(2*pi/epsilon)
     times=np.arange(0,tf,dt)
-    res=compute_continue(epsilon,alpha,times)
-    time.sleep(50*np.random.random(1))#eviter que tout le monde saauvegarde en meme temps
-    f_freq=Averaging_discret.Averaging_discret_sphere.get_f_freq(2,alpha)
-    #on va compresser le temps
-    #f_axis,f_theta=Averaging_discret.Averaging_discret_sphere.get_f_axis_theta(x_s,y_s,z_s,theta)
-    averag=Averaging_discret.Averaging_discret_sphere(f_freq=f_freq)
-    averag.get_timer(epsilon)
-    times_d=averag.times
+    res=compute_continue(epsilon,alpha,times,E)
+    time.sleep(50*np.random.random(1))#eviter que tout le monde sauvegarde en meme temps
+    times_d=get_time_d(E,alpha,epsilon)
     ## we load the continue simulation
     [x_c,y_c,z_c]=res
     ## we set the same time for both
     [x_c_p,y_c_p,z_c_p]=[np.interp(times_d, times*epsilon, x_c),np.interp(times_d, times*epsilon, y_c),np.interp(times_d, times*epsilon, z_c)]
     #we save the new result
     res=[x_c_p,y_c_p,z_c_p]
+    save(path,res)
+
+def save(path,res):
     try:
         with open(path, 'wb') as fp:
             pickle.dump(res, fp)
@@ -109,15 +129,26 @@ def prepare_continue_single_thread(alpha,E,dt,epsilon,path,i):
         os.system('echo "{:d}" >> res/failed.txt'.format(i))
         os.system('rm '+path) 
 
-lst_alpha=np.arange(-1,1,0.1)
-path="res/simu_continue_compact_{:f}_{:f}_-4dt"
-E=2
-dt=0.0001
-lst_epsilon=np.array([0.05,0.02,0.01,0.008,0.005,0.002,0.001])
-i=int((sys.argv[1]))
-print(i)
-epsilon=lst_epsilon[i//len(lst_alpha)]
-alpha=lst_alpha[i % len(lst_alpha)]
-path=path.format(epsilon,alpha)
-prepare_continue_single_thread(alpha,E,dt,epsilon,path,i)
-#prepare_continue(lst_alpha,E,dt,lst_epsilon,path)
+#compute_continue(0.01,0,None,2)
+# epsilon=0.1
+# E=2
+# alpha=0
+# dt=0.001
+# lk=len(get_times_d(E,alpha,epsilon))
+# flot=np.eye(3)
+# times_d=get_times_d(E,alpha,epsilon)
+# print(times_d)
+# t=int(times_d[lk-1]/(dt*epsilon))
+# for k in range (lk-1):
+#     flot=np.dot(prepare_continue_mpi(alpha,E,dt,epsilon,k),flot)
+# print(flot)
+# r=np.dot(flot,[0,0,1])
+# r=r/np.linalg.norm(r)
+# print(r)
+# tf=int(2*pi/(epsilon*dt))*dt
+# times=np.arange(0,tf,dt)
+# res=compute_continue(epsilon,alpha,times,E)
+# res=np.array(res)
+# print(res[:,t])
+# print(res[:,-1])
+# print(len(res[0]))
